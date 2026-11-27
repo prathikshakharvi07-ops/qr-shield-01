@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Shield | Browser Edition</title>
+
+    <script src="https://cjrtnc.leaningtech.com/5.0/loader.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            background: #07111f;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        header {
+            padding: 18px;
+            background: #10243a;
+        }
+
+        #status {
+            padding: 15px;
+            color: #67e8f9;
+        }
+
+        #app {
+            width: 100%;
+            min-height: 750px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>🛡️ QR SHIELD</h1>
+        <p>Scan Smart. Stay Safe.</p>
+    </header>
+
+    <div id="status">Starting Java runtime...</div>
+    <div id="app"></div>
+
+    <script type="module">
+        async function launchQRShield() {
+            const status = document.getElementById("status");
+
+            try {
+                status.textContent = "Loading Java 17 runtime...";
+
+                await cheerpjInit({ version: 17 });
+
+                status.textContent = "Launching QR Shield...";
+
+                cheerpjCreateDisplay(1000, 750);
+
+                await cheerpjRunJar(
+                    "/app/public/qr-shield-swing-1.0.0.jar"
+                );
+
+                status.textContent = "QR Shield session ended.";
+            } catch (error) {
+                console.error(error);
+                status.textContent =
+                    "Unable to launch QR Shield: " + error.message;
+            }
+        }
+
+        launchQRShield();
+    </script>
+</body>
+</html>
