@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08111f">
+  <meta name="description" content="QR Shield helps inspect QR code content before you open links, connect to networks, or make payments.">
+  <title>QR Shield — QR Code Safety Checker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111d;
+      --bg2: #0a1726;
+      --panel: rgba(15, 29, 46, .92);
+      --panel2: #101f31;
+      --panel3: #13263a;
+      --line: rgba(157, 190, 220, .13);
+      --text: #eaf2fb;
+      --muted: #91a4b9;
+      --muted2: #6f849b;
+      --mint: #50e0b3;
+      --mint2: #27b98d;
+      --cyan: #5bc8e8;
+      --amber: #f0b958;
+      --red: #fa727c;
+      --green: #59d7a5;
+      --shadow: 0 24px 70px rgba(0,0,0,.24);
+      --radius: 20px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text);
+      font-family: "DM Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(900px 500px at 83% -8%, rgba(46, 151, 149, .17), transparent 64%),
+        radial-gradient(700px 420px at -12% 28%, rgba(46, 113, 165, .15), transparent 65%),
+        linear-gradient(145deg, #06101b, #091725 52%, #07111e);
+    }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    .app { width: min(1480px, 100%); margin: auto; padding: 22px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:22px; }
+    .brand { display:flex; align-items:center; gap:13px; min-width:0; }
+    .brand-mark { width:46px; height:46px; display:grid; place-items:center; border-radius:15px; color:#061a1a; background:linear-gradient(140deg,#6af0c4,#35bda7); box-shadow:0 8px 28px rgba(63,220,174,.18); }
+    .brand-mark svg { width:27px; height:27px; }
+    .brand-title { font-size:19px; letter-spacing:.13em; font-weight:800; }
+    .brand-sub { color:var(--muted); font-size:11px; letter-spacing:.13em; margin-top:3px; text-transform:uppercase; }
+    .top-actions { display:flex; align-items:center; gap:10px; }
+    .mode-chip, .status-chip { display:flex; align-items:center; gap:8px; border:1px solid var(--line); color:#b6c9db; background:rgba(16,34,51,.72); border-radius:999px; padding:9px 13px; font-size:12px; white-space:nowrap; }
+    .dot { width:7px; height:7px; border-radius:50%; background:var(--mint); box-shadow:0 0 12px var(--mint); }
+    .layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:20px; align-items:start; }
+    .sidebar { position:sticky; top:18px; border:1px solid var(--line); border-radius:var(--radius); background:rgba(12,26,42,.82); padding:15px; box-shadow:var(--shadow); }
+    .side-label { color:var(--muted2); text-transform:uppercase; font-size:10px; font-weight:700; letter-spacing:.16em; padding:13px 11px 8px; }
+    .nav-btn { width:100%; border:0; background:transparent; color:#9fb1c4; display:flex; align-items:center; gap:12px; padding:12px 11px; border-radius:12px; text-align:left; margin:2px 0; transition:.18s ease; font-weight:600; font-size:13px; }
+    .nav-btn svg { width:17px; height:17px; opacity:.86; }
+    .nav-btn:hover { color:var(--text); background:rgba(255,255,255,.045); }
+    .nav-btn.active { color:#dffcf3; background:linear-gradient(100deg,rgba(62,211,168,.17),rgba(62,211,168,.055)); box-shadow:inset 2px 0 0 var(--mint); }
+    .side-note { margin-top:20px; border:1px solid rgba(80,224,179,.14); background:rgba(54,187,148,.06); border-radius:14px; padding:13px; }
+    .side-note-title { color:#b8f5e2; font-size:12px; font-weight:700; margin-bottom:5px; }
+    .side-note p { margin:0; color:var(--muted); font-size:11px; line-height:1.55; }
+    main { min-width:0; }
+    .welcome { display:flex; align-items:flex-end; justify-content:space-between; gap:15px; margin:4px 2px 19px; }
+    .eyebrow { color:var(--mint); font-size:10px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; margin-bottom:8px; }
+    h1 { font-size:clamp(25px,3vw,35px); letter-spacing:-.045em; line-height:1.1; margin:0; }
+    .welcome p { color:var(--muted); margin:9px 0 0; font-size:13px; line-height:1.55; }
+    .scan-state { border:1px solid var(--line); border-radius:12px; padding:10px 13px; color:#aec3d6; background:rgba(13,29,46,.75); font-size:11px; white-space:nowrap; }
+    .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin-bottom:17px; }
+    .stat { border:1px solid var(--line); border-radius:16px; background:linear-gradient(145deg,rgba(17,37,57,.88),rgba(12,27,43,.88)); padding:15px 17px; min-width:0; }
+    .stat-top { display:flex; justify-content:space-between; align-items:center; gap:10px; color:var(--muted); font-size:11px; }
+    .stat-icon { width:28px; height:28px; display:grid; place-items:center; color:var(--mint); background:rgba(80,224,179,.1); border-radius:9px; }
+    .stat-icon svg { width:15px; height:15px; }
+    .stat-value { font-size:25px; font-weight:800; letter-spacing:-.04em; margin-top:9px; }
+    .stat-caption { color:var(--muted2); font-size:10px; margin-top:2px; }
+    .main-grid { display:grid; grid-template-columns:minmax(0,1.04fr) minmax(350px,.96fr); gap:16px; align-items:stretch; }
+    .card { border:1px solid var(--line); border-radius:var(--radius); background:linear-gradient(155deg,rgba(17,35,54,.97),rgba(11,25,40,.96)); box-shadow:var(--shadow); min-width:0; }
+    .card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:19px 20px 14px; }
+    .card-title { display:flex; align-items:center; gap:10px; font-weight:800; font-size:14px; letter-spacing:-.01em; }
+    .card-title svg { color:var(--mint); width:18px; height:18px; }
+    .card-kicker { color:var(--muted2); font-size:10px; text-transform:uppercase; letter-spacing:.12em; }
+    .tabs { display:flex; gap:5px; padding:0 20px 15px; border-bottom:1px solid var(--line); }
+    .tab { border:1px solid transparent; background:transparent; color:var(--muted); border-radius:9px; padding:8px 11px; font-size:11px; font-weight:700; }
+    .tab.active { color:#d9fff2; border-color:rgba(80,224,179,.2); background:rgba(80,224,179,.09); }
+    .scan-body { padding:17px 20px 20px; }
+    .dropzone { border:1px dashed rgba(114,164,192,.35); border-radius:16px; background:radial-gradient(300px 160px at 50% 0%,rgba(63,188,172,.09),transparent 80%),rgba(5,17,29,.42); min-height:230px; display:flex; align-items:center; justify-content:center; text-align:center; padding:22px; transition:.2s ease; }
+    .dropzone.dragover { border-color:var(--mint); background:rgba(68,214,170,.1); }
+    .upload-content { max-width:320px; }
+    .upload-icon { width:54px; height:54px; display:grid; place-items:center; margin:0 auto 13px; border-radius:17px; background:rgba(80,224,179,.1); color:var(--mint); }
+    .upload-icon svg { width:26px; height:26px; }
+    .upload-content h3 { font-size:14px; margin:0 0 6px; }
+    .upload-content p { color:var(--muted); font-size:11px; line-height:1.6; margin:0 0 14px; }
+    .muted-small { color:var(--muted2); font-size:10px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:10px; padding:10px 14px; border:1px solid transparent; font-size:11px; font-weight:800; transition:.18s ease; }
+    .btn svg { width:15px; height:15px; }
+    .btn-primary { color:#06211d; background:linear-gradient(135deg,#63e9bd,#35c6a2); box-shadow:0 6px 18px rgba(52,204,158,.13); }
+    .btn-primary:hover { filter:brightness(1.06); transform:translateY(-1px); }
+    .btn-secondary { color:#d0deeb; background:#172b40; border-color:rgba(151,184,211,.13); }
+    .btn-secondary:hover { background:#1d354d; }
+    .btn-quiet { color:var(--muted); border-color:var(--line); background:rgba(255,255,255,.025); }
+    .btn-danger { color:#ffc4c8; border-color:rgba(250,114,124,.18); background:rgba(250,114,124,.07); }
+    .camera-wrap { display:none; }
+    #camera-reader { width:100%; overflow:hidden; border-radius:14px; background:#02080d; min-height:220px; }
+    #camera-reader video { border-radius:12px; object-fit:cover; }
+    #camera-reader__scan_region { min-height:200px; }
+    #camera-reader img { display:none; }
+    .camera-controls { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .paste-wrap { display:none; }
+    .field-label { display:block; color:#c1d2e1; font-size:11px; font-weight:700; margin:0 0 8px; }
+    .input, .textarea { width:100%; background:#081725; color:var(--text); border:1px solid rgba(145,174,199,.19); border-radius:11px; padding:12px 13px; outline:none; font-size:12px; transition:.18s ease; }
+    .input:focus, .textarea:focus { border-color:rgba(80,224,179,.6); box-shadow:0 0 0 3px rgba(80,224,179,.08); }
+    .textarea { min-height:144px; resize:vertical; line-height:1.6; font-family:"DM Mono",monospace; font-size:11px; }
+    .paste-actions { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:11px; }
+    .helper-row { display:flex; align-items:flex-start; gap:8px; color:var(--muted2); font-size:10px; line-height:1.5; margin-top:13px; }
+    .helper-row svg { width:14px; height:14px; flex:0 0 auto; color:var(--cyan); }
+    .result-card { position:relative; overflow:hidden; }
+    .result-card:before { content:""; position:absolute; width:220px; height:220px; right:-90px; top:-110px; border-radius:50%; background:rgba(79,213,174,.055); filter:blur(3px); pointer-events:none; }
+    .result-content { padding:2px 20px 20px; position:relative; }
+    .verdict-box { display:flex; align-items:center; gap:14px; padding:15px; border:1px solid var(--line); border-radius:15px; background:rgba(4,15,26,.42); margin-bottom:15px; }
+    .verdict-symbol { width:45px; height:45px; border-radius:14px; display:grid; place-items:center; flex:0 0 auto; background:rgba(145,164,185,.1); color:var(--muted); }
+    .verdict-symbol svg { width:23px; height:23px; }
+    .verdict-box.safe .verdict-symbol { background:rgba(89,215,165,.13); color:var(--green); }
+    .verdict-box.suspicious .verdict-symbol { background:rgba(240,185,88,.13); color:var(--amber); }
+    .verdict-box.dangerous .verdict-symbol { background:rgba(250,114,124,.13); color:var(--red); }
+    .verdict-label { color:var(--muted2); font-size:9px; letter-spacing:.16em; font-weight:800; text-transform:uppercase; }
+    .verdict-name { font-size:19px; font-weight:800; letter-spacing:-.03em; margin-top:3px; }
+    .verdict-box.safe .verdict-name { color:var(--green); }
+    .verdict-box.suspicious .verdict-name { color:var(--amber); }
+    .verdict-box.dangerous .verdict-name { color:var(--red); }
+    .score-wrap { margin-left:auto; text-align:right; }
+    .score-number { font-size:25px; font-weight:800; letter-spacing:-.04em; }
+    .score-caption { color:var(--muted2); font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
+    .section-label { color:#b9cbdc; font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin:17px 0 9px; }
+    .content-preview { background:#081725; border:1px solid var(--line); padding:12px; border-radius:11px; color:#bdd0e1; font-family:"DM Mono",monospace; font-size:10px; line-height:1.6; word-break:break-word; white-space:pre-wrap; max-height:98px; overflow:auto; }
+    .details-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .detail { background:rgba(6,18,30,.58); border:1px solid rgba(145,174,199,.1); border-radius:10px; padding:10px; min-width:0; }
+    .detail-label { color:var(--muted2); font-size:9px; text-transform:uppercase; letter-spacing:.11em; margin-bottom:5px; }
+    .detail-value { color:#d7e4ef; font-size:11px; font-weight:600; word-break:break-word; line-height:1.4; }
+    .reason-list { display:grid; gap:8px; }
+    .reason { display:flex; align-items:flex-start; gap:9px; color:#b8c9d9; font-size:10px; line-height:1.55; }
+    .reason-bullet { width:17px; height:17px; display:grid; place-items:center; border-radius:6px; color:var(--amber); background:rgba(240,185,88,.1); flex:0 0 auto; font-size:10px; font-weight:800; }
+    .reason.good .reason-bullet { color:var(--green); background:rgba(89,215,165,.1); }
+    .advice { border:1px solid rgba(80,224,179,.15); background:rgba(50,179,141,.07); color:#bce8da; border-radius:12px; padding:12px; font-size:10px; line-height:1.6; }
+    .result-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .empty-result { min-height:440px; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; }
+    .empty-icon { width:70px; height:70px; border-radius:22px; margin:0 auto 15px; background:rgba(80,224,179,.075); color:#57cba9; display:grid; place-items:center; }
+    .empty-icon svg { width:32px; height:32px; }
+    .empty-result h3 { margin:0 0 7px; font-size:15px; }
+    .empty-result p { color:var(--muted); max-width:240px; margin:0 auto; line-height:1.65; font-size:11px; }
+    .lower-grid { display:grid; grid-template-columns:minmax(0,1.18fr) minmax(260px,.82fr); gap:16px; margin-top:16px; }
+    .history-card, .quick-card { padding-bottom:12px; }
+    .history-tools { display:flex; align-items:center; gap:8px; }
+    .history-list { padding:0 17px; display:grid; gap:7px; }
+    .history-row { display:grid; grid-template-columns:10px minmax(0,1fr) auto; gap:11px; align-items:center; background:rgba(5,17,28,.46); border:1px solid rgba(145,174,199,.09); border-radius:11px; padding:10px 11px; cursor:pointer; }
+    .history-row:hover { background:rgba(37,72,92,.24); }
+    .history-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+    .history-dot.safe { background:var(--green); }
+    .history-dot.suspicious { background:var(--amber); }
+    .history-dot.dangerous { background:var(--red); }
+    .history-main { min-width:0; }
+    .history-title { color:#d2e0ec; font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .history-meta { color:var(--muted2); font-size:9px; margin-top:3px; }
+    .history-score { color:#a9bfd2; font-size:10px; font-family:"DM Mono",monospace; }
+    .empty-history { color:var(--muted2); font-size:11px; text-align:center; padding:23px 10px; }
+    .quick-content { padding:0 18px 8px; }
+    .quick-item { width:100%; display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(5,17,28,.4); border:1px solid rgba(145,174,199,.1); border-radius:11px; padding:11px; text-align:left; color:#c4d5e4; margin-bottom:7px; font-size:10px; }
+    .quick-item:hover { border-color:rgba(80,224,179,.25); background:rgba(80,224,179,.05); }
+    .quick-item span:last-child { color:var(--muted2); font-size:9px; }
+    .disclaimer { color:var(--muted2); font-size:9px; line-height:1.6; margin:15px 3px 4px; }
+    .toast { position:fixed; left:50%; bottom:23px; transform:translate(-50%,20px); opacity:0; pointer-events:none; z-index:20; background:#e4fff5; color:#08251d; border-radius:10px; padding:11px 15px; font-size:11px; font-weight:800; box-shadow:0 12px 40px rgba(0,0,0,.3); transition:.22s ease; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .modal-backdrop { display:none; position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.68); backdrop-filter:blur(5px); align-items:center; justify-content:center; padding:18px; }
+    .modal-backdrop.show { display:flex; }
+    .modal { width:min(510px,100%); background:#102238; border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:var(--shadow); }
+    .modal h2 { font-size:18px; margin:0 0 8px; }
+    .modal p { font-size:11px; line-height:1.65; color:var(--muted); margin:0 0 15px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+    .hidden { display:none !important; }
+    @media (max-width:1100px) {
+      .layout { grid-template-columns:190px minmax(0,1fr); }
+      .main-grid { grid-template-columns:1fr; }
+      .empty-result { min-height:300px; }
+    }
+    @media (max-width:760px) {
+      .app { padding:13px; }
+      .layout { grid-template-columns:1fr; gap:13px; }
+      .sidebar { position:static; padding:8px; display:flex; align-items:center; gap:4px; overflow-x:auto; }
+      .side-label, .side-note { display:none; }
+      .nav-btn { width:auto; flex:0 0 auto; padding:10px 11px; margin:0; }
+      .nav-btn span { white-space:nowrap; }
+      .topbar { margin-bottom:17px; }
+      .brand-title { font-size:16px; }
+      .brand-sub { font-size:9px; }
+      .mode-chip { display:none; }
+      .welcome { align-items:flex-start; flex-direction:column; }
+      .stats { gap:8px; }
+      .stat { padding:12px; }
+      .stat-value { font-size:21px; }
+      .stat-top { font-size:9px; }
+      .stat-caption { font-size:9px; }
+      .lower-grid { grid-template-columns:1fr; }
+      .scan-body { padding:14px; }
+      .card-head { padding:16px 15px 12px; }
+      .tabs { padding:0 14px 12px; }
+      .result-content { padding:2px 14px 15px; }
+      .verdict-name { font-size:16px; }
+      .score-number { font-size:21px; }
+    }
+    @media (max-width:420px) {
+      .stats { grid-template-columns:1fr 1fr; }
+      .stats .stat:last-child { grid-column:span 2; }
+      .details-grid { grid-template-columns:1fr; }
+      .scan-state { white-space:normal; }
+      .brand-mark { width:40px; height:40px; }
+      .brand-title { letter-spacing:.08em; }
+      .tabs { gap:2px; }
+      .tab { padding:8px; font-size:10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20 5.7v5.7c0 5.1-3.2 8.5-8 10.1-4.8-1.6-8-5-8-10.1V5.7L12 2.5Z"/><path d="m8.5 12.2 2.2 2.2 4.8-5"/></svg>
+        </div>
+        <div>
+          <div class="brand-title">QR SHIELD</div>
+          <div class="brand-sub">Scan smart · Stay safe</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="mode-chip"><span class="dot"></span><span id="modeLabel">Browser checks active</span></div>
+        <div class="status-chip"><span class="dot"></span> System ready</div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="side-label">Workspace</div>
+        <button class="nav-btn active" data-target="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h7v7h-7z"/></svg><span>Dashboard</span></button>
+        <button class="nav-btn" data-target="scanArea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8h3v3H8zM15 8h1v1h-1zM8 15h1v1H8zM13 13h3v3h-3z"/></svg><span>Scan QR</span></button>
+        <button class="nav-btn" data-target="urlChecker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg><span>URL Checker</span></button>
+        <button class="nav-btn" data-target="historyArea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span>Scan History</span></button>
+        <div class="side-note"><div class="side-note-title">Safety reminder</div><p>A QR code can hide a destination. Review its content before opening links, connecting to Wi-Fi or sending payments.</p></div>
+      </aside>
+
+      <main id="dashboard">
+        <section class="welcome">
+          <div><div class="eyebrow">Security workspace / overview</div><h1>Your QR safety console.</h1><p>Inspect a QR code before you trust what it asks you to do.</p></div>
+          <div class="scan-state" id="scanState">● Ready for a new scan</div>
+        </section>
+
+        <section class="stats" aria-label="Scan statistics">
+          <div class="stat"><div class="stat-top"><span>Total scans</span><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-6v-2"/></svg></span></div><div class="stat-value" id="totalScans">0</div><div class="stat-caption">Saved in this browser</div></div>
+          <div class="stat"><div class="stat-top"><span>Suspicious / dangerous</span><span class="stat-icon" style="color:var(--amber);background:rgba(240,185,88,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg></span></div><div class="stat-value" id="riskScans">0</div><div class="stat-caption">Flagged by the checks performed</div></div>
+          <div class="stat"><div class="stat-top"><span>Most recent scan</span><span class="stat-icon" style="color:var(--cyan);background:rgba(91,200,232,.1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></div><div class="stat-value" id="lastScan" style="font-size:17px">—</div><div class="stat-caption">Local browser time</div></div>
+        </section>
+
+        <section class="main-grid" id="scanArea">
+          <article class="card">
+            <div class="card-head"><div><div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8h3v3H8zM15 8h1v1h-1zM8 15h1v1H8zM13 13h3v3h-3z"/></svg> Scan a QR code</div><div class="card-kicker" style="margin:6px 0 0 28px">Image · Camera · Text</div></div><span class="card-kicker">01 / INPUT</span></div>
+            <div class="tabs" role="tablist">
+              <button class="tab active" data-tab="upload" role="tab">Upload image</button>
+              <button class="tab" data-tab="camera" role="tab">Use camera</button>
+              <button class="tab" data-tab="paste" role="tab">Paste content</button>
+            </div>
+            <div class="scan-body">
+              <div id="uploadPanel">
+                <div class="dropzone" id="dropzone">
+                  <div class="upload-content"><div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></div><h3>Drop your QR image here</h3><p>Choose a PNG, JPG, GIF or WEBP image. QR Shield will decode it in your browser.</p><button class="btn btn-primary" id="chooseImageBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3"/></svg> Choose image</button><input type="file" id="imageInput" accept="image/*" hidden><div class="muted-small" style="margin-top:11px">Image processing stays on this device</div></div>
+                </div>
+                <div id="imagePreviewWrap" class="hidden" style="margin-top:12px;display:flex;align-items:center;gap:12px"><img id="imagePreview" alt="Selected QR image preview" style="width:62px;height:62px;object-fit:cover;border-radius:10px;border:1px solid var(--line)"><div style="min-width:0;flex:1"><div id="imageName" style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><div class="muted-small">Selected image</div></div><button class="btn btn-quiet" id="removeImageBtn">Remove</button></div>
+              </div>
+              <div class="camera-wrap" id="cameraPanel">
+                <div id="camera-reader"></div>
+                <div class="camera-controls"><button class="btn btn-primary" id="startCameraBtn">Start camera</button><button class="btn btn-secondary" id="stopCameraBtn" disabled>Stop camera</button><span class="muted-small" style="align-self:center">Camera access requires HTTPS and permission.</span></div>
+              </div>
+              <div class="paste-wrap" id="pastePanel">
+                <label class="field-label" for="rawContent">Paste the decoded QR content or a URL</label>
+                <textarea class="textarea" id="rawContent" placeholder="Example: https://example.com&#10;or WIFI:T:WPA;S:NetworkName;P:password123;;"></textarea>
+                <div class="paste-actions"><span class="muted-small" style="align-self:center">The content will be inspected before any link is opened.</span><button class="btn btn-primary" id="analyzeTextBtn">Analyze content →</button></div>
+              </div>
+              <div class="helper-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7h.01"/></svg><span>QR Shield analyzes decoded content. It does not automatically open links, join Wi-Fi networks or make payments.</span></div>
+            </div>
+          </article>
+
+          <article class="card result-card" id="resultPanel">
+            <div class="card-head"><div><div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 20 6v5.5c0 4.6-3.1 7.8-8 9.5-4.9-1.7-8-4.9-8-9.5V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg> Security assessment</div><div class="card-kicker" style="margin:6px 0 0 28px">02 / ANALYSIS</div></div><span class="card-kicker" id="resultMode">AWAITING INPUT</span></div>
+            <div id="emptyResult" class="empty-result"><div><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3 20 6v5.5c0 4.6-3.1 7.8-8 9.5-4.9-1.7-8-4.9-8-9.5V6l8-3Z"/><path d="M12 8v4M12 16h.01"/></svg></div><h3>Waiting for a scan</h3><p>Upload a QR image, start your camera or paste content to see the safety assessment here.</p></div></div>
+            <div id="resultContent" class="result-content hidden">
+              <div class="verdict-box" id="verdictBox"><div class="verdict-symbol" id="verdictSymbol"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5M12 16h.01"/></svg></div><div><div class="verdict-label">QR Shield verdict</div><div class="verdict-name" id="verdictName">REVIEW</div></div><div class="score-wrap"><div class="score-number" id="scoreNumber">0</div><div class="score-caption">Risk points</div></div></div>
+              <div class="section-label">Decoded content</div><div class="content-preview" id="decodedContent"></div>
+              <div class="section-label">Detected details</div><div class="details-grid" id="detailsGrid"></div>
+              <div class="section-label">Assessment reasons</div><div class="reason-list" id="reasonList"></div>
+              <div class="section-label">Recommended action</div><div class="advice" id="adviceText"></div>
+              <div class="result-actions"><button class="btn btn-secondary" id="copyContentBtn">Copy content</button><button class="btn btn-quiet" id="openLinkBtn" disabled>Open destination</button><button class="btn btn-quiet" id="clearResultBtn">Clear result</button></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="lower-grid" id="historyArea">
+          <article class="card history-card">
+            <div class="card-head"><div><div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg> Recent scans</div><div class="card-kicker" style="margin:6px 0 0 28px">Stored locally in this browser</div></div><div class="history-tools"><button class="btn btn-quiet" id="exportHistoryBtn">Export</button><button class="btn btn-quiet" id="clearHistoryBtn">Clear</button></div></div>
+            <div class="history-list" id="historyList"><div class="empty-history">Your scan history will appear here.</div></div>
+          </article>
+          <article class="card quick-card" id="urlChecker">
+            <div class="card-head"><div><div class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg> Manual URL check</div><div class="card-kicker" style="margin:6px 0 0 28px">Inspect a link without opening it</div></div></div>
+            <div class="quick-content"><label class="field-label" for="urlInput">Website address</label><input class="input" id="urlInput" type="text" inputmode="url" placeholder="https://website.example"><button class="btn btn-primary" id="checkUrlBtn" style="width:100%;margin-top:10px">Check this URL <span>→</span></button><div class="section-label" style="margin-top:17px">Try a sample</div><button class="quick-item" data-sample="https://www.google.com"><span>https://www.google.com</span><span>SAFE example ↗</span></button><button class="quick-item" data-sample="http://secure-account-verify.example.xyz/login"><span>http://secure-account-verify…</span><span>RISK example ↗</span></button><p class="disclaimer">Sample results demonstrate local pattern checks only. A low score is not proof that a website is legitimate.</p></div>
+          </article>
+        </section>
+        <p class="disclaimer">QR Shield is an aid, not a guarantee of safety. Browser checks are preliminary and cannot prove the identity of a sender, merchant, Wi-Fi owner, app publisher or website. Google Safe Browsing and the original Java backend are not connected until a secure backend API is configured.</p>
+      </main>
+    </div>
+  </div>
+
+  <div id="file-reader" aria-hidden="true" style="position:fixed;left:-10000px;top:0;width:320px;height:320px;opacity:0;pointer-events:none"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal"><h2 id="modalTitle">Open this destination?</h2><p id="modalText">QR Shield cannot guarantee that this destination is safe. Only continue if you have independently verified it.</p><div class="modal-actions"><button class="btn btn-quiet" id="cancelOpenBtn">Cancel</button><button class="btn btn-primary" id="confirmOpenBtn">Open anyway</button></div></div>
+  </div>
+
+  <script>
+    /*
+      BACKEND CONNECTION
+      ------------------
+      The repository currently contains a Java Swing desktop app, not an HTTP API.
+      When the Java API is created and deployed, set BACKEND_URL to its HTTPS origin.
+      Expected endpoint: POST {BACKEND_URL}/api/analyze
+      Request JSON:  { "content": "decoded QR text" }
+      Response JSON: { "qrType": "WEBSITE", "verdict": "SAFE", "score": 0,
+                       "reasons": [], "advice": "...", "details": [{"label":"Host","value":"example.com"}],
+                       "url": "https://example.com" }
+      If BACKEND_URL is blank, this page uses the clearly-labelled browser-only fallback checks below.
+      Do not put a Google Safe Browsing API key in this public frontend.
+    */
+    const BACKEND_URL = "";
+    const HISTORY_KEY = "qr-shield-browser-history-v1";
+    let currentAssessment = null;
+    let scanner = null;
+    let cameraRunning = false;
+    let currentFileUrl = null;
+
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    const safeText = (value, max = 420) => String(value ?? "").slice(0, max);
+
+    function toast(message) {
+      const el = $("toast"); el.textContent = message; el.classList.add("show");
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 2600);
+    }
+    function setStatus(message) { $("scanState").textContent = "● " + message; }
+    function getHistory() {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+      catch { return []; }
+    }
+    function saveHistory(history) {
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 60))); }
+      catch { toast("Browser storage is unavailable. History was not saved."); }
+      renderHistory();
+    }
+    function updateStats() {
+      const history = getHistory();
+      $("totalScans").textContent = history.length;
+      $("riskScans").textContent = history.filter(x => ["SUSPICIOUS", "DANGEROUS"].includes(String(x.verdict).toUpperCase())).length;
+      $("lastScan").textContent = history.length ? new Date(history[0].time).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "—";
+    }
+    function renderHistory() {
+      const history = getHistory(); const host = $("historyList");
+      updateStats();
+      if (!history.length) { host.innerHTML = '<div class="empty-history">Your scan history will appear here.</div>'; return; }
+      host.innerHTML = history.slice(0, 7).map((item, i) => {
+        const state = verdictClass(item.verdict);
+        return `<button class="history-row" data-history-index="${i}" type="button"><span class="history-dot ${state}"></span><span class="history-main"><span class="history-title">${escapeHtml(item.content || item.qrType || "Scan")}</span><span class="history-meta">${escapeHtml(item.qrType)} · ${escapeHtml(new Date(item.time).toLocaleString())}</span></span><span class="history-score">${escapeHtml(item.verdict)}</span></button>`;
+      }).join("");
+      host.querySelectorAll("[data-history-index]").forEach(btn => btn.addEventListener("click", () => {
+        const item = getHistory()[Number(btn.dataset.historyIndex)]; if (item?.content) analyzeContent(item.content, {fromHistory:true});
+      }));
+    }
+    function verdictClass(verdict) {
+      const v = String(verdict || "").toUpperCase();
+      if (v.includes("DANGEROUS") || v.includes("MALICIOUS")) return "dangerous";
+      if (v.includes("SUSPICIOUS")) return "suspicious";
+      if (v === "SAFE") return "safe";
+      return "";
+    }
+    function detectType(raw) {
+      const t = raw.trim(); const l = t.toLowerCase();
+      if (l.startsWith("upi://")) return "UPI PAYMENT";
+      if (l.startsWith("wifi:")) return "WIFI NETWORK";
+      if (l.startsWith("market://") || l.startsWith("intent://") || isAppStoreUrl(t) || installerExtension(t)) return "APP";
+      if (l.startsWith("https://") || l.startsWith("http://")) { try { const u = new URL(t); return u.hostname ? "WEBSITE" : "INVALID URL"; } catch { return "INVALID URL"; } }
+      if (l.startsWith("ht") && l.includes("://")) return "INVALID URL";
+      if (l.startsWith("mailto:")) return "EMAIL";
+      if (l.startsWith("tel:")) return "PHONE NUMBER";
+      if (l.startsWith("sms:") || l.startsWith("smsto:")) return "SMS";
+      if (l.startsWith("geo:")) return "LOCATION";
+      return "TEXT";
+    }
+    function isAppStoreUrl(value) {
+      try { const u = new URL(value); return (u.hostname.toLowerCase() === "play.google.com" && u.pathname.toLowerCase().startsWith("/store/apps/")) || (u.hostname.toLowerCase() === "apps.apple.com" && u.pathname.toLowerCase().includes("/app/")); }
+      catch { return false; }
+    }
+    function installerExtension(value) {
+      let path = value.trim(); try { path = new URL(value).pathname; } catch { path = path.split(/[?#]/)[0]; }
+      const m = path.match(/\.((?:apk|exe|msi|dmg|deb|rpm|appimage|jar|bat|cmd|scr))$/i); return m ? m[1].toUpperCase() : "";
+    }
+    function parseQuery(query) { const out = {}; if (!query) return out; for (const [k,v] of new URLSearchParams(query)) out[k.toLowerCase()] = v; return out; }
+    function parseWifi(text) {
+      const out = {}; const body = text.trim().replace(/^\uFEFF/, "").slice(5); let key = "", value = "", readingKey = true;
+      for (let i=0; i<body.length; i++) { const ch = body[i]; if (ch === "\\" && i+1<body.length) { (readingKey ? (key += body[++i]) : (value += body[++i])); continue; }
+        if (readingKey && ch === ":") { readingKey = false; continue; }
+        if (ch === ";") { if (key) out[key.toUpperCase()] = value; key=""; value=""; readingKey=true; continue; }
+        if (readingKey) key += ch; else value += ch;
+      }
+      if (key) out[key.toUpperCase()] = value; return out;
+    }
+    function parseEmail(text) {
+      const raw = text.slice(7); const i = raw.indexOf("?");
+      const address = i >= 0 ? raw.slice(0,i) : raw; return {to:decodeURIComponentSafe(address.replace(/\+/g,"%2B")), ...(i>=0 ? parseQuery(raw.slice(i+1)) : {})};
+    }
+    function parseSms(text) {
+      const isTo = /^smsto:/i.test(text); const body = text.slice(isTo ? 6 : 4); const i=body.indexOf("?"); const numPart=i>=0?body.slice(0,i):body; const q=i>=0?parseQuery(body.slice(i+1)):{}; const colon=numPart.indexOf(":");
+      const number=(colon>=0?numPart.slice(0,colon):numPart).trim(); const msg=colon>=0?numPart.slice(colon+1).trim():""; return {number, body:q.body || msg, ...q};
+    }
+    function decodeURIComponentSafe(s) { try { return decodeURIComponent(s); } catch { return s; } }
+    const RISK_WORDS = ["urgent","immediately","verify","verification","password","otp","bank","blocked","locked","suspended","account","refund","reward","winner","prize","claim","pay","free gift","limited time","act now","kyc","send money","payment required","click here","click","confirm your identity","security alert","update","restore","install","remote access","access code","cracked","modded","premium unlocked","download"];
+    function findRiskWords(text) { const lower=text.toLowerCase(); return [...new Set(RISK_WORDS.filter(word => lower.includes(word)))]; }
+    function containsCredentialRequest(text) { return /\b(enter|send|share|provide|submit)\b[\s\S]*\b(password|otp|pin|passcode|cvv|card number)\b/i.test(text); }
+    function containsWebLink(text) { return /https?:\/\/|www\./i.test(text); }
+    const SHORT_HOSTS = ["bit.ly","t.co","tinyurl.com","goo.gl","ow.ly","is.gd","buff.ly","cutt.ly","rb.gy","shorturl.at","rebrand.ly"];
+    function isPrivateHost(host) { return host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || host === "::1"; }
+    function isShortHost(host) { return SHORT_HOSTS.some(x => host === x || host.endsWith("."+x)); }
+    function addDetail(details, label, value) { if (value !== undefined && value !== null && String(value).trim() !== "") details.push({label, value:String(value)}); }
+    function localAssess(raw) {
+      const text=raw.trim(); const qrType=detectType(text); let score=0, reasons=[], details=[], url="";
+      if (!text) throw new Error("Enter or scan some QR content first.");
+      const add=(n,reason)=>{ score+=n; reasons.push(reason); };
+      if (qrType === "INVALID URL") return {qrType, verdict:"REVIEW URL", score:2, reasons:["The content looks like a URL, but its format is invalid or incomplete. Check the spelling and enter a complete http:// or https:// address."], advice:"Do not open this link until the address is corrected and independently verified.", details};
+      if (qrType === "WEBSITE") {
+        let u; try { u=new URL(text); } catch { return {qrType:"INVALID URL",verdict:"REVIEW URL",score:2,reasons:["The address is not a valid HTTP or HTTPS URL."],advice:"Do not open this link until it is corrected and independently verified.",details}; }
+        url=u.href; const host=u.hostname.toLowerCase(); addDetail(details,"Website host",host); addDetail(details,"Protocol",u.protocol.replace(":","")); addDetail(details,"Port",u.port || "Default");
+        if (isPrivateHost(host)) add(3,"The address points to a local/private network or localhost rather than a public website.");
+        if (u.protocol === "http:") add(1,"The link uses HTTP instead of encrypted HTTPS.");
+        if (u.port && !((u.protocol === "http:" && u.port === "80") || (u.protocol === "https:" && u.port === "443"))) add(1,`The URL uses a non-standard port (${u.port}). This is not proof of danger, but verify why it is used.`);
+        if (host.includes("xn--")) add(3,"The domain uses Punycode, which can be used to imitate familiar website names.");
+        if (u.host.includes("@")) add(2,"The URL contains an @ symbol in its authority, which can disguise the actual destination.");
+        const tld=host.split(".").pop(); if (["xyz","top","buzz","click","loan","work","gq","tk"].includes(tld)) add(2,"The domain extension is sometimes associated with low-trust or abusive sites. This alone does not prove danger.");
+        if (isShortHost(host)) add(2,"This is a shortened link, so its final destination is not obvious.");
+        if (/\.(exe|msi|bat|cmd|scr|jar|apk|dmg|deb|rpm|appimage)(?:$|[?#/])|malware|trojan|phishing|steal[-_/]?password|credential[-_/]?steal|ransomware|keylogger|spyware/i.test(text)) add(6,"The URL contains a high-risk malware, credential-theft, phishing, or executable-download indicator.");
+        const words=[...new Set((text.match(/verify|urgent|immediately|reward|login|password|otp|refund|kyc|winner|claim|update|pay/gi)||[]).map(x=>x.toLowerCase()))];
+        if (words.length) add(Math.min(2,words.length),"The URL contains potentially manipulative or credential-related words: "+words.join(", ")+".");
+        const verdict=score>=7?"DANGEROUS":score>=1?"SUSPICIOUS":"SAFE";
+        if (!reasons.length) reasons.push("No obvious warning signs were detected by browser pattern checks. This does not guarantee that the website is safe.");
+        const advice=verdict==="DANGEROUS"?"DO NOT OPEN THIS WEBSITE. Strong warning signs were detected. Do not enter passwords, OTPs, banking information or personal details.":verdict==="SUSPICIOUS"?"PROCEED WITH EXTREME CAUTION. Verify the domain independently before opening it. Do not enter sensitive information unless you are certain the website is genuine.":"No obvious warning signs were detected by browser checks. This is not a guarantee that the website is safe. Never share passwords, OTPs or payment PINs on an untrusted page.";
+        return {qrType,verdict,score,reasons,advice,details,url};
+      }
+      if (qrType === "APP") {
+        const ext=installerExtension(text), lower=text.toLowerCase();
+        let source=lower.startsWith("market://")?"Android app market link":lower.startsWith("intent://")?"Android intent link":lower.includes("play.google.com")?"Google Play listing link":lower.includes("apps.apple.com")?"Apple App Store listing link":"Application or installer link";
+        addDetail(details,"Link type",source); const pkg=text.match(/(?:[?&;]id=|[;]package=)([a-z0-9_]+(?:\.[a-z0-9_]+)+)/i); if(pkg)addDetail(details,"Android package",pkg[1]); const appId=text.match(/\/id(\d+)(?:[/?#]|$)/i); if(appId)addDetail(details,"Apple App Store ID",appId[1]); if(ext)addDetail(details,"Installer type",ext);
+        if(ext) add(4,`The QR code points to an application installer file (${ext}). Installing files from an unknown source can expose your device to malware.`);
+        if (/\b(cracked|crack|modded|mod[- ]?apk|premium[- ]?unlocked|patched[- ]?app)\b/i.test(lower)) add(3,"The link contains wording associated with cracked, modified or unlocked software. Such downloads may be tampered with or unsafe.");
+        const known=source.includes("Google Play")||source.includes("Apple App Store"); reasons.push(known?"This appears to use an official app-store listing URL. Check the app developer, reviews and requested permissions before installing.":"QR Shield cannot verify the app publisher or whether this source is trustworthy. Prefer the developer's verified website or the official app store.");
+        const verdict=score>=7?"DANGEROUS":score>0?"SUSPICIOUS":"REVIEW APP";
+        return {qrType,verdict,score,reasons,advice:verdict==="DANGEROUS"?"DO NOT INSTALL THIS APP. Use a verified official store instead.":verdict==="SUSPICIOUS"?"PROCEED WITH EXTREME CAUTION. Verify the publisher and download source independently before installing.":"Review the developer's identity, ratings and permissions before installing. A store-style URL is not a guarantee that an app is safe.",details,url:/^https?:/i.test(text)?text:""};
+      }
+      if (qrType === "UPI PAYMENT") {
+        const fields=parseQuery((text.split("?")[1]||"")); addDetail(details,"Payee address (VPA)",fields.pa||"Not provided"); addDetail(details,"Payee name",fields.pn||"Not provided"); addDetail(details,"Amount",fields.am||"Not specified"); addDetail(details,"Transaction note",fields.tn||"None");
+        const decoded=(text+" "+(fields.pa||"")+" "+(fields.pn||"")+" "+(fields.tn||"")).toLowerCase();
+        ["verify","urgent","reward","login","password","otp","refund","kyc","winner"].forEach(w=>{if(new RegExp("\\b"+w+"\\b","i").test(decoded))score++;});
+        if (/\b(receive|refund|cashback|win|prize|claim|reward)\b|get money/i.test((fields.pn||"")+" "+(fields.tn||""))) add(4,"The payment text contains wording associated with receiving money, refunds or rewards. A genuine incoming payment never requires your UPI PIN.");
+        if (!fields.pa) add(2,"The UPI QR does not clearly include a payee address (pa).");
+        if (!reasons.length) reasons.push("No obvious suspicious wording was detected. QR Shield cannot verify the recipient's bank account or identity.");
+        return {qrType,verdict:"REVIEW PAYMENT",score,reasons,advice:"Confirm the recipient's UPI ID, name and exact amount inside your trusted payment app before proceeding. Never enter your UPI PIN to receive money.",details};
+      }
+      if (qrType === "WIFI NETWORK") {
+        const f=parseWifi(text); addDetail(details,"Network name",f.S||"Not provided"); addDetail(details,"Security type",f.T||"Not specified"); addDetail(details,"Password",f.P?"Present (hidden for privacy)":"Not provided"); addDetail(details,"Hidden network",f.H||"Not specified");
+        if (!f.S) add(1,"The Wi-Fi network name is missing.");
+        if (!f.T) reasons.push("The QR code does not specify the Wi-Fi security type. Confirm the network settings with its owner.");
+        else if (/^nopass$/i.test(f.T)) reasons.push("This is an open Wi-Fi network with no password. Open Wi-Fi is not automatically malicious, but avoid sensitive activity unless you trust it.");
+        else if (/^wep$/i.test(f.T)) add(3,"WEP is an outdated and weak Wi-Fi security method.");
+        if (f.P && f.P.length<8) add(2,"The Wi-Fi password is shorter than 8 characters and may be weak.");
+        const words=findRiskWords(f.S||""); if(words.length)add(2,"The network name contains potentially misleading wording: "+words.join(", ")+".");
+        if(!reasons.length)reasons.push("No obvious configuration warning was found. QR Shield cannot verify who operates this Wi-Fi network.");
+        const suspicious=score>=3; return {qrType,verdict:suspicious?"SUSPICIOUS":"REVIEW NETWORK",score,reasons,advice:suspicious?"This Wi-Fi QR code has a configuration concern. Verify the network owner and settings before connecting.":(/^nopass$/i.test(f.T||"")?"This is an open Wi-Fi network, which is not automatically malicious. Confirm that it is the intended network and avoid sensitive activity unless you trust it.":"Confirm that this is the correct network and that you trust its owner. Use WPA2 or WPA3 security for a protected network."),details};
+      }
+      if (qrType === "EMAIL") {
+        const f=parseEmail(text); addDetail(details,"Recipient",f.to||"Not provided"); addDetail(details,"CC",f.cc||"Not provided"); addDetail(details,"BCC",f.bcc||"Not provided"); addDetail(details,"Subject",f.subject||"No subject"); addDetail(details,"Message",f.body||"No message"); const msg=(f.subject||"")+" "+(f.body||"");
+        if(!f.to||!f.to.includes("@")||!f.to.includes("."))add(2,"The email recipient is missing or does not look like a complete email address.");
+        const words=findRiskWords(msg); if(words.length)add(Math.min(4,words.length*2),"The email contains potentially suspicious wording: "+words.join(", ")+".");
+        if(containsCredentialRequest(msg))add(4,"The message appears to request passwords, OTPs, PINs or other sensitive credentials."); if(containsWebLink(msg))add(2,"The email contains a web link. Verify its destination before opening it.");
+        if(!reasons.length)reasons.push("No obvious suspicious wording was found. QR Shield cannot verify the sender or recipient's identity.");
+        return {qrType,verdict:score>=3?"SUSPICIOUS":"REVIEW EMAIL",score,reasons,advice:score>=3?"Do not follow unexpected instructions or share sensitive information unless you independently verify the source.":"Check the recipient, subject and message before sending. Never email passwords, OTPs, payment PINs or banking credentials.",details};
+      }
+      if (qrType === "SMS") {
+        const f=parseSms(text); addDetail(details,"Phone number",f.number||"Not provided"); addDetail(details,"Message",f.body||"Not provided"); if(!f.number) add(1,"The SMS recipient number is missing.");
+        const words=findRiskWords(f.body||""); if(words.length)add(Math.min(4,words.length*2),"The message contains potentially suspicious wording: "+words.join(", ")+"."); if(containsCredentialRequest(f.body||""))add(4,"The message appears to request passwords, OTPs, PINs or other sensitive information."); if(containsWebLink(f.body||""))add(2,"The SMS contains a web link. Verify the destination independently.");
+        if(!reasons.length)reasons.push("No obvious scam-related wording was found. QR Shield cannot verify the recipient or sender.");
+        return {qrType,verdict:score>=3?"SUSPICIOUS":"REVIEW MESSAGE",score,reasons,advice:score>=3?"Do not follow the message's instructions until the sender is independently verified.":"Confirm the phone number and message before sending. Never send OTPs, passwords or banking information.",details};
+      }
+      if (qrType === "PHONE NUMBER") {
+        const number=text.slice(4).trim(); addDetail(details,"Phone number",number); const digits=number.replace(/[^0-9]/g,""); if(digits.length<7||digits.length>15)add(2,"The phone number has an unusual length. Check it before calling."); if(/[A-Za-z]/.test(number))add(2,"The phone number contains letters or unexpected characters."); if(number.startsWith("+")&&!/^\+[0-9() .-]+$/.test(number))add(2,"The international phone number format looks unusual."); if(!reasons.length)reasons.push("The phone number format has no obvious warning signs. QR Shield cannot check the number owner's identity or reputation.");
+        return {qrType,verdict:score>=3?"SUSPICIOUS":"REVIEW NUMBER",score,reasons,advice:"Confirm the number belongs to the person or organisation you intend to call. Do not share sensitive information with unknown callers.",details};
+      }
+      if (qrType === "LOCATION") {
+        const coordinates=text.slice(4), pair=coordinates.split(/[?;]/,1)[0], parts=pair.split(",",2); let lat,lon; try {lat=Number(parts[0]);lon=Number(parts[1]); if(parts.length!==2||!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error();}catch{add(3,"The location coordinates are missing, malformed or could not be read as numbers.");}
+        if(Number.isFinite(lat)&&Number.isFinite(lon)){addDetail(details,"Latitude",lat);addDetail(details,"Longitude",lon);if(lat < -90||lat>90)add(3,"The latitude is invalid. It must be between -90 and 90 degrees.");if(lon < -180||lon>180)add(3,"The longitude is invalid. It must be between -180 and 180 degrees.");if(score===0)reasons.push("The latitude and longitude are within valid coordinate ranges. This does not verify whether the destination is trustworthy.");}
+        const q=coordinates.includes("?")?parseQuery(coordinates.split("?")[1]).q:"";addDetail(details,"Place label",q||"Not provided");return {qrType,verdict:score>=3?"SUSPICIOUS":"REVIEW LOCATION",score,reasons,advice:"Check the destination on a trusted map before travelling there.",details};
+      }
+      const words=findRiskWords(text); if(words.length)add(Math.min(4,words.length*2),"The text contains potentially suspicious wording: "+words.join(", ")+"."); if(containsCredentialRequest(text))add(4,"The text appears to request passwords, OTPs, PINs or other sensitive information.");if(containsWebLink(text))add(2,"The text contains a web link. Check the destination before opening it.");if(!reasons.length)reasons.push("No obvious suspicious wording was detected. This does not guarantee that the text or its source is trustworthy.");
+      addDetail(details,"Content type","Plain text");return {qrType,verdict:score>=3?"SUSPICIOUS":"REVIEW TEXT",score,reasons,advice:"Read the decoded content carefully. Do not follow unexpected instructions or share sensitive information.",details};
+    }
+
+    async function analyzeWithBackend(raw) {
+      const response = await fetch(BACKEND_URL.replace(/\/$/,"")+"/api/analyze", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:raw})});
+      if (!response.ok) throw new Error("Java backend returned HTTP "+response.status);
+      const data = await response.json();
+      if (!data || !data.verdict) throw new Error("Backend response is missing the verdict field.");
+      return {qrType:data.qrType || detectType(raw), verdict:data.verdict, score:Number(data.score || 0), reasons:Array.isArray(data.reasons)?data.reasons:["The backend returned no assessment reasons."], advice:data.advice || "Review this content carefully.", details:Array.isArray(data.details)?data.details:[], url:data.url || (data.url === null ? "" : (/^https?:/i.test(raw)?raw:"")), source:"java-backend"};
+    }
+    async function analyzeContent(raw, options={}) {
+      raw=String(raw||"").trim(); if(!raw){toast("Please scan or enter QR content first.");return;}
+      setStatus("Analyzing decoded content…"); $("resultMode").textContent="ANALYZING";
+      try {
+        let result;
+        if (BACKEND_URL.trim()) result=await analyzeWithBackend(raw);
+        else { await new Promise(r=>setTimeout(r,120)); result=localAssess(raw); result.source="browser-fallback"; }
+        result.content=raw; result.time=new Date().toISOString(); currentAssessment=result; renderAssessment(result);
+        if (!options.fromHistory) { const hist=getHistory(); hist.unshift({content:safeText(raw,500),qrType:result.qrType,verdict:result.verdict,score:result.score,time:result.time}); saveHistory(hist); }
+        setStatus("Assessment complete");
+        $("resultPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+      } catch (err) { console.error(err); setStatus("Analysis failed"); $("resultMode").textContent="ERROR"; toast(err.message || "Could not analyze this content."); }
+    }
+    function renderAssessment(a) {
+      $("emptyResult").classList.add("hidden"); $("resultContent").classList.remove("hidden");
+      const state=verdictClass(a.verdict); const box=$("verdictBox"); box.className="verdict-box "+state;
+      const icon=state==="safe"?'<path d="m5 12 4 4L19 6"/>':state==="dangerous"?'<path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/>':'<path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/>';
+      $("verdictSymbol").innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>`;
+      $("verdictName").textContent=a.verdict; $("scoreNumber").textContent=String(a.score ?? 0); $("decodedContent").textContent=a.content;
+      const details=[{label:"QR type",value:a.qrType},...(a.details||[])];
+      $("detailsGrid").innerHTML=details.length?details.map(d=>`<div class="detail"><div class="detail-label">${escapeHtml(d.label||"Detail")}</div><div class="detail-value">${escapeHtml(d.value)}</div></div>`).join(""):'<div class="detail"><div class="detail-value">No additional fields detected.</div></div>';
+      $("reasonList").innerHTML=(a.reasons||[]).map((r,i)=>`<div class="reason ${state==="safe"?"good":""}"><span class="reason-bullet">${state==="safe"?"✓":i+1}</span><span>${escapeHtml(r)}</span></div>`).join("");
+      $("adviceText").textContent=a.advice || "Review the decoded content carefully before taking action.";
+      $("resultMode").textContent=a.source==="java-backend"?"JAVA BACKEND":"BROWSER-ONLY CHECKS";
+      $("modeLabel").textContent=a.source==="java-backend"?"Java backend connected":"Browser checks active";
+      $("openLinkBtn").disabled=!a.url; $("openLinkBtn").textContent=a.url?"Open destination":"No web link detected";
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===name));
+      $("uploadPanel").style.display=name==="upload"?"block":"none";
+      $("cameraPanel").style.display=name==="camera"?"block":"none";
+      $("pastePanel").style.display=name==="paste"?"block":"none";
+      if(name!=="camera" && cameraRunning) stopCamera();
+    }
+    document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>switchTab(t.dataset.tab)));
+    document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{
+      document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");
+      const target=$(btn.dataset.target); if(target)target.scrollIntoView({behavior:"smooth",block:"start"});
+    }));
+    $("chooseImageBtn").addEventListener("click",()=>$("imageInput").click());
+    $("imageInput").addEventListener("change",e=>{const file=e.target.files?.[0];if(file)scanImage(file);});
+    async function scanImage(file) {
+      if(!file.type.startsWith("image/")){toast("Choose a valid image file.");return;}
+      $("imagePreview").src=URL.createObjectURL(file); $("imageName").textContent=file.name; $("imagePreviewWrap").classList.remove("hidden");
+      setStatus("Decoding QR image…");
+      if(typeof Html5Qrcode==="undefined"){toast("QR decoder did not load. Check your internet connection and refresh.");setStatus("QR decoder unavailable");return;}
+      let decoder;
+      try { decoder=new Html5Qrcode("file-reader",{verbose:false}); const decoded=await decoder.scanFile(file,true); $("rawContent").value=decoded; toast("QR code decoded successfully."); await analyzeContent(decoded); }
+      catch(err){console.warn(err);toast("No readable QR code was found in this image.");setStatus("Image could not be decoded");}
+      finally { try{if(decoder)await decoder.clear();}catch{} }
+    }
+    $("removeImageBtn").addEventListener("click",()=>{ $("imageInput").value="";$("imagePreviewWrap").classList.add("hidden");if($("imagePreview").src)URL.revokeObjectURL($("imagePreview").src); });
+    const dropzone=$("dropzone");
+    ["dragenter","dragover"].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.add("dragover");}));
+    ["dragleave","drop"].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.remove("dragover");}));
+    dropzone.addEventListener("drop",e=>{const f=e.dataTransfer.files?.[0];if(f)scanImage(f);});
+
+    async function startCamera() {
+      if(cameraRunning)return;
+      if(!navigator.mediaDevices?.getUserMedia){toast("Camera access is not available in this browser.");return;}
+      if(typeof Html5Qrcode==="undefined"){toast("QR decoder did not load. Refresh with an internet connection.");return;}
+      try {
+        scanner=new Html5Qrcode("camera-reader",{verbose:false}); cameraRunning=true; $("startCameraBtn").disabled=true; $("stopCameraBtn").disabled=false; setStatus("Waiting for a QR code in camera view…");
+        await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230},aspectRatio:1.0},async(decoded)=>{await stopCamera();$("rawContent").value=decoded;toast("QR code scanned successfully.");analyzeContent(decoded);},()=>{});
+      } catch(err) { console.error(err);cameraRunning=false;$("startCameraBtn").disabled=false;$("stopCameraBtn").disabled=true;toast("Could not start camera. Allow permission and use HTTPS or localhost.");setStatus("Camera unavailable");try{await scanner?.clear();}catch{}scanner=null; }
+    }
+    async function stopCamera() {
+      if(scanner && cameraRunning){try{await scanner.stop();}catch{}try{await scanner.clear();}catch{}}
+      scanner=null;cameraRunning=false;$("startCameraBtn").disabled=false;$("stopCameraBtn").disabled=true;setStatus("Camera stopped");
+    }
+    $("startCameraBtn").addEventListener("click",startCamera); $("stopCameraBtn").addEventListener("click",stopCamera);
+    $("analyzeTextBtn").addEventListener("click",()=>analyzeContent($("rawContent").value));
+    $("rawContent").addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter")analyzeContent($("rawContent").value);});
+    $("checkUrlBtn").addEventListener("click",()=>{const value=$("urlInput").value.trim();if(value){$("rawContent").value=value;analyzeContent(value);}else toast("Enter a website address first.");});
+    $("urlInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("checkUrlBtn").click();});
+    document.querySelectorAll("[data-sample]").forEach(btn=>btn.addEventListener("click",()=>{$("urlInput").value=btn.dataset.sample;$ ("rawContent").value=btn.dataset.sample;analyzeContent(btn.dataset.sample);}));
+    $("copyContentBtn").addEventListener("click",async()=>{if(!currentAssessment)return;try{await navigator.clipboard.writeText(currentAssessment.content);toast("Decoded content copied.");}catch{toast("Clipboard permission was denied.");}});
+    $("clearResultBtn").addEventListener("click",()=>{currentAssessment=null;$("resultContent").classList.add("hidden");$("emptyResult").classList.remove("hidden");$("resultMode").textContent="AWAITING INPUT";$("modeLabel").textContent=BACKEND_URL?"Java backend configured":"Browser checks active";setStatus("Ready for a new scan");});
+    $("clearHistoryBtn").addEventListener("click",()=>{if(!getHistory().length){toast("History is already empty.");return;}if(confirm("Clear all scan history saved in this browser?")){saveHistory([]);toast("Scan history cleared.");}});
+    $("exportHistoryBtn").addEventListener("click",()=>{const history=getHistory();if(!history.length){toast("There is no scan history to export.");return;}const blob=new Blob([JSON.stringify(history,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="qr-shield-history.json";a.click();URL.revokeObjectURL(a.href);toast("History export created.");});
+
+    let pendingUrl="";
+    $("openLinkBtn").addEventListener("click",()=>{if(!currentAssessment?.url)return;pendingUrl=currentAssessment.url;$("modalText").textContent="Destination: "+pendingUrl+". QR Shield cannot guarantee this destination is safe. Only continue if you have independently verified it.";$("confirmModal").classList.add("show");});
+    $("cancelOpenBtn").addEventListener("click",()=>{$("confirmModal").classList.remove("show");pendingUrl="";});
+    $("confirmOpenBtn").addEventListener("click",()=>{if(pendingUrl){window.open(pendingUrl,"_blank","noopener,noreferrer");}$ ("confirmModal").classList.remove("show");pendingUrl="";});
+    $("confirmModal").addEventListener("click",e=>{if(e.target===$("confirmModal"))$("cancelOpenBtn").click();});
+
+    renderHistory();
+    if(BACKEND_URL.trim()) $("modeLabel").textContent="Java backend configured";
+  </script>
+</body>
+</html>
