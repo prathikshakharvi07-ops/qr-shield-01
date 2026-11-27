@@ -56,10 +56,7 @@
 
                 cheerpjCreateDisplay(1000, 750);
 
-                await cheerpjRunJar(
-                    "/app/public/qr-shield-swing-1.0.0.jar"
-                );
-
+                await cheerpjRunJar("/app/QR-Shield/public/qr-shield-swing-1.0.0.jar");
                 status.textContent = "QR Shield session ended.";
             } catch (error) {
                 console.error(error);
