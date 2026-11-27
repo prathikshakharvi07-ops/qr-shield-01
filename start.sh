@@ -10,7 +10,7 @@ fi
 export DISPLAY=:99
 
 # Start virtual display
-Xvfb :99 -screen 0 1280x800x24 &
+Xvfb :99 -screen 0 1024x700x16 &
 sleep 2
 
 # Start desktop window manager
